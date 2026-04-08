@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CGHS Medical Claim Processor — Department of Expenditure</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#0f2044;--blue:#1d5fc0;--blue-l:#e8f0fc;--blue-m:#c2d6f8;
+  --gold:#c8860a;--gold-l:#fff7e6;--gold-b:#fbbf24;
+  --green:#147a4f;--green-l:#eaf5ef;
+  --red:#b91c1c;--red-l:#fef2f2;
+  --g50:#f8f9fb;--g100:#f1f3f7;--g200:#e4e8f0;--g400:#8a94a8;--g600:#4a5568;--g800:#1a2035;
+  --font:'DM Sans',sans-serif;--mono:'DM Mono',monospace;--r:10px;
+}
+body{font-family:var(--font);background:var(--g50);color:var(--g800);min-height:100vh}
+
+/* TOPBAR */
+.topbar{background:var(--navy);padding:0 24px;height:58px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:300}
+.tl{display:flex;align-items:center;gap:14px}
+.ashok{width:34px;height:34px}
+.t-title{color:#fff;font-size:14px;font-weight:500}
+.t-sub{color:rgba(255,255,255,.45);font-size:11px;margin-top:2px}
+.badge{background:var(--gold);color:#fff;font-size:10px;font-weight:500;padding:3px 9px;border-radius:20px}
+.sdot{width:7px;height:7px;border-radius:50%;background:var(--blue);animation:pulse 1.6s ease-in-out infinite}
+.sdot.ok{background:var(--green);animation:none}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+
+/* STEPS */
+.steps{background:#fff;border-bottom:1px solid var(--g200);display:flex;overflow-x:auto;padding:0 20px}
+.step{display:flex;align-items:center;gap:8px;padding:13px 18px;font-size:13px;color:var(--g400);border-bottom:2px solid transparent;white-space:nowrap;cursor:default;transition:all .2s}
+.step.active{color:var(--blue);border-bottom-color:var(--blue);font-weight:500}
+.step.done{color:var(--green)}
+.sn{width:20px;height:20px;border-radius:50%;border:1.5px solid currentColor;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;flex-shrink:0}
+.step.active .sn{background:var(--blue);border-color:var(--blue);color:#fff}
+.step.done .sn{background:var(--green);border-color:var(--green);color:#fff}
+.sarr{color:var(--g200);font-size:18px;margin:0 -6px}
+
+/* LAYOUT */
+.main{max-width:1200px;margin:0 auto;padding:28px 20px}
+.panel{background:#fff;border:1px solid var(--g200);border-radius:var(--r);margin-bottom:20px;overflow:hidden}
+.ph{padding:13px 20px;border-bottom:1px solid var(--g100);display:flex;align-items:center;justify-content:space-between;background:var(--g50);flex-wrap:wrap;gap:8px}
+.ph-title{font-size:13px;font-weight:500;color:var(--navy);display:flex;align-items:center;gap:8px}
+.pb{padding:20px}
+
+/* UPLOAD */
+.ugrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+@media(max-width:800px){.ugrid{grid-template-columns:1fr 1fr}}
+@media(max-width:500px){.ugrid{grid-template-columns:1fr}}
+.ugrid .span2{grid-column:span 2}
+@media(max-width:800px){.ugrid .span2{grid-column:span 1}}
+.ulabel{font-size:12px;font-weight:500;color:var(--g600);margin-bottom:6px}
+.uzone{border:2px dashed var(--g200);border-radius:var(--r);padding:16px;text-align:center;cursor:pointer;transition:all .18s;position:relative;background:var(--g50);min-height:110px}
+.uzone:hover{border-color:var(--blue);background:var(--blue-l)}
+.uzone.ok{border-style:solid;border-color:var(--green);background:var(--green-l)}
+.uzone.eclaim-zone{border-color:var(--gold-b);background:var(--gold-l)}
+.uzone.eclaim-zone.ok{border-color:var(--green);background:var(--green-l)}
+.uzone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.uico{font-size:20px;margin-bottom:4px}
+.umn{font-size:12px;font-weight:500;color:var(--g600);margin-bottom:2px}
+.uhn{font-size:10px;color:var(--g400)}
+.file-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;justify-content:center}
+.chip{background:#fff;border:1px solid var(--green);color:var(--green);font-size:10px;font-family:var(--mono);padding:2px 6px;border-radius:20px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-flex;align-items:center;gap:3px}
+.chip-x{cursor:pointer;font-size:12px;flex-shrink:0}
+.chip-x:hover{color:var(--red)}
+.chip-view{cursor:pointer;font-size:10px;color:var(--blue);text-decoration:underline;margin-left:2px}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:8px;font-family:var(--font);font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all .14s;white-space:nowrap}
+.btn-p{background:var(--blue);color:#fff}.btn-p:hover{background:#1a54b0}
+.btn-p:disabled{background:var(--g200);color:var(--g400);cursor:not-allowed}
+.btn-o{background:#fff;color:var(--g600);border:1px solid var(--g200)}.btn-o:hover{border-color:var(--blue);color:var(--blue)}
+.btn-g{background:var(--green);color:#fff}.btn-g:hover{background:#0f6140}
+.btn-gd{background:var(--gold);color:#fff}.btn-gd:hover{background:#b07509}
+.btn-sm{padding:5px 10px;font-size:12px}
+
+/* PROGRESS/LOG */
+.pbar-wrap{margin:14px 0}
+.pbar-lbl{font-size:12px;color:var(--g400);margin-bottom:5px;display:flex;justify-content:space-between}
+.pbar{height:4px;background:var(--g200);border-radius:10px;overflow:hidden}
+.pbar-fill{height:100%;background:linear-gradient(90deg,var(--blue),#60a5fa);border-radius:10px;transition:width .4s ease}
+.log{font-family:var(--mono);font-size:11px;line-height:1.75;background:#0c1015;color:#7ee8a2;padding:12px 14px;border-radius:8px;max-height:160px;overflow-y:auto}
+.ll{display:block}.lts{color:#3d4f5e;margin-right:8px}.lw{color:#fbbf24}.le{color:#f87171}
+
+/* ALERTS */
+.alert{padding:12px 15px;border-radius:8px;font-size:13px;margin-bottom:10px;display:flex;gap:10px;align-items:flex-start;line-height:1.5}
+.ai{font-size:15px;flex-shrink:0;margin-top:1px}
+.a-blue{background:var(--blue-l);border:1px solid var(--blue-m);color:#1e40af}
+.a-gold{background:var(--gold-l);border:1px solid var(--gold-b);color:#7a4f04}
+.a-green{background:var(--green-l);border:1px solid #6ee7b7;color:var(--green)}
+.a-red{background:var(--red-l);border:1px solid #fca5a5;color:var(--red)}
+
+/* TAGS */
+.tag{display:inline-flex;align-items:center;font-size:10px;font-weight:500;padding:2px 7px;border-radius:20px}
+.tag-b{background:var(--blue-l);color:var(--blue)}
+.tag-g{background:var(--green-l);color:var(--green)}
+.tag-gd{background:var(--gold-l);color:var(--gold)}
+.tag-r{background:var(--red-l);color:var(--red)}
+
+/* VCARDS */
+.vcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:9px;margin-bottom:14px}
+.vc{border-radius:8px;padding:11px 13px;border:1px solid transparent;display:flex;align-items:center;gap:9px}
+.vc.pass{background:var(--green-l);border-color:#86efac}
+.vc.fail{background:var(--red-l);border-color:#fca5a5}
+.vc.warn{background:var(--gold-l);border-color:var(--gold-b)}
+.vi{font-size:15px;flex-shrink:0}.vt{font-size:12px;font-weight:500}
+
+/* HOSPITALISATION CARD */
+.hosp-card{border:2px solid var(--blue-m);border-radius:var(--r);padding:16px 20px;margin-bottom:16px;background:var(--blue-l)}
+.hosp-card.warn{border-color:#fca5a5;background:var(--red-l)}
+.hosp-card.ok{border-color:#86efac;background:var(--green-l)}
+.hosp-title{font-size:13px;font-weight:600;color:var(--navy);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.hosp-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:600px){.hosp-grid{grid-template-columns:1fr}}
+.hosp-field{display:flex;flex-direction:column;gap:2px}
+.hosp-lbl{font-size:10px;font-weight:500;color:var(--g400);text-transform:uppercase;letter-spacing:.4px}
+.hosp-val{font-size:13px;color:var(--g800);font-weight:500}
+.hosp-val.ok{color:var(--green)}
+.hosp-val.warn{color:var(--gold)}
+.hosp-val.fail{color:var(--red)}
+.om-ref{font-size:10px;color:var(--g400);margin-top:10px;font-style:italic}
+
+/* TABS */
+.tabs{display:flex;border-bottom:1px solid var(--g200);margin-bottom:18px}
+.tab{padding:9px 16px;font-size:13px;cursor:pointer;border-bottom:2px solid transparent;color:var(--g400);transition:all .14s}
+.tab.active{color:var(--blue);border-bottom-color:var(--blue);font-weight:500}
+
+/* EXTRACTION TABLE */
+.etbl{width:100%;border-collapse:collapse;font-size:13px}
+.etbl th{text-align:left;padding:7px 11px;background:var(--g50);color:var(--g400);font-weight:500;font-size:10px;letter-spacing:.5px;text-transform:uppercase;border-bottom:1px solid var(--g200);white-space:nowrap}
+.etbl td{padding:9px 11px;border-bottom:1px solid var(--g100);vertical-align:top}
+.etbl tr:last-child td{border-bottom:none}
+.etbl tr:hover td{background:var(--g50)}
+.fk{font-weight:500;color:var(--g600);width:180px;white-space:nowrap}
+.fv{color:var(--g800);font-family:var(--mono);font-size:12px}
+.cb{display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 6px;border-radius:10px;font-family:var(--mono);white-space:nowrap}
+.ch{background:var(--green-l);color:var(--green)}
+.cm{background:var(--gold-l);color:var(--gold)}
+.cl{background:var(--red-l);color:var(--red)}
+.edit-input{width:100%;border:1.5px solid var(--gold-b);border-radius:5px;padding:5px 8px;font-family:var(--mono);font-size:12px;background:#fffef5;color:var(--g800);outline:none;transition:border-color .15s}
+.edit-input:focus{border-color:var(--blue);background:#fff}
+.edit-input.conf-low{border-color:#fca5a5;background:#fff8f8}
+.edit-note{font-size:10px;color:#7a4f04;margin-top:2px}
+
+/* SOURCE BADGE */
+.source-cite{display:inline-flex;align-items:center;gap:5px;background:#f0f4ff;border:1px solid #c7d8f8;border-radius:6px;padding:3px 8px;font-size:10.5px;font-family:var(--mono);color:#1e40af;white-space:nowrap;cursor:default}
+.source-cite .src-icon{font-size:11px;flex-shrink:0}
+.source-cite .src-file{color:#1d5fc0;font-weight:500;max-width:160px;overflow:hidden;text-overflow:ellipsis}
+.source-cite .src-sep{color:#93b4e8}
+.source-cite .src-pg{background:var(--blue);color:#fff;padding:1px 6px;border-radius:10px;font-size:10px}
+.source-cite.not-found{background:#fff8f8;border-color:#fca5a5;color:var(--red)}
+.source-cite.not-found .src-pg{background:var(--red)}
+.src-view-btn{font-size:10px;color:var(--blue);cursor:pointer;text-decoration:underline;margin-left:4px;white-space:nowrap}
+.src-view-btn:hover{color:var(--navy)}
+
+/* BILLS TABLE */
+.btbl{width:100%;border-collapse:collapse;font-size:12px}
+.btbl th{background:var(--g50);padding:7px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--g400);font-weight:500;border-bottom:1px solid var(--g200);text-align:left;white-space:nowrap}
+.btbl td{padding:5px 6px;border-bottom:1px solid var(--g100);vertical-align:top}
+.btbl tr:last-child td{font-weight:500;background:var(--g50)}
+.cell-in{width:100%;border:1px solid var(--g200);border-radius:4px;padding:4px 6px;font-family:var(--mono);font-size:11px;background:#fff;color:var(--g800)}
+.cell-in:focus{outline:none;border-color:var(--blue)}
+.cell-in.flagged{border-color:var(--gold-b);background:#fffef5}
+.src-mini{display:inline-flex;align-items:center;gap:3px;font-size:9px;font-family:var(--mono);background:#eef3ff;border:1px solid #c7d8f8;border-radius:4px;padding:1px 5px;color:#1d5fc0;margin-top:3px;white-space:nowrap}
+.src-mini.low{background:#fff5f5;border-color:#fca5a5;color:var(--red)}
+
+/* LEGEND */
+.legend{display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--g600);padding:10px 14px;background:var(--g50);border:1px solid var(--g200);border-radius:8px;margin-bottom:14px}
+.legend-item{display:flex;align-items:center;gap:6px}
+
+/* RAW */
+.rawbox{font-family:var(--mono);font-size:12px;line-height:1.7;color:var(--g600);white-space:pre-wrap;max-height:300px;overflow-y:auto;background:var(--g50);padding:14px;border-radius:8px;border:1px solid var(--g200)}
+
+/* FILE VIEWER MODAL */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:500;display:flex;align-items:center;justify-content:center}
+.modal{background:#fff;border-radius:12px;width:92vw;max-width:1000px;height:88vh;display:flex;flex-direction:column;overflow:hidden}
+.modal-hdr{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--g200);flex-shrink:0}
+.modal-title{font-size:14px;font-weight:500;color:var(--navy);display:flex;align-items:center;gap:8px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.modal-close{background:none;border:none;font-size:22px;cursor:pointer;color:var(--g400);padding:0 4px;line-height:1}
+.modal-close:hover{color:var(--red)}
+.modal-body{flex:1;overflow:hidden;background:var(--g100)}
+.modal-body iframe{width:100%;height:100%;border:none}
+.modal-body img{width:100%;height:100%;object-fit:contain;background:#fff}
+.modal-footer{padding:10px 20px;border-top:1px solid var(--g200);font-size:11px;color:var(--g400);flex-shrink:0}
+
+/* SANCTION */
+.sanc-wrapper{border:1px solid var(--g200);border-radius:8px;overflow:hidden}
+.sanc-toolbar{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--g50);border-bottom:1px solid var(--g200);flex-wrap:wrap}
+.tool-btn{background:#fff;border:1px solid var(--g200);border-radius:5px;padding:4px 10px;font-size:13px;cursor:pointer}
+.tool-btn:hover{border-color:var(--blue);color:var(--blue)}
+.sanc{font-family:'Times New Roman',Georgia,serif;font-size:14px;line-height:2;color:#000;background:#fff;padding:40px 60px 48px;min-height:600px;outline:none;cursor:text}
+.sanc:focus{outline:2px dashed #93c5fd;outline-offset:-2px}
+.sanc .file-ref{font-size:11px;color:#333;margin-bottom:20px;border-bottom:1px solid #bbb;padding-bottom:10px}
+.sanc .note-no{font-weight:bold;margin-bottom:2px}
+.sanc .sub-line{font-weight:bold;margin-bottom:16px}
+.sanc .sp{margin-bottom:12px;text-align:justify}
+.sanc-tbl{width:100%;border-collapse:collapse;margin:14px 0 18px;font-size:12.5px}
+.sanc-tbl th{border:1px solid #000;padding:5px 6px;font-weight:bold;text-align:center;background:#f0f0f0;font-size:12px}
+.sanc-tbl td{border:1px solid #000;padding:5px 6px;text-align:center;vertical-align:middle}
+.sanc-tbl td.tl{text-align:left}
+.sanc-tbl .tot-row td{font-weight:bold;background:#f5f5f5}
+.sanc .sanc-footer{margin-top:20px;padding-top:10px;border-top:1px solid #bbb;font-size:11px;color:#555}
+
+.abar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;padding:14px 20px;background:var(--g50);border-top:1px solid var(--g200)}
+
+.spin{width:15px;height:15px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .65s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+
+<!-- FILE VIEWER MODAL -->
+<div class="modal-bg hidden" id="viewer-bg" onclick="closeViewer(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-hdr">
+      <div class="modal-title" id="viewer-title">📄 Document Viewer</div>
+      <button class="modal-close" onclick="closeViewerDirect()">×</button>
+    </div>
+    <div class="modal-body" id="viewer-body"></div>
+    <div class="modal-footer" id="viewer-footer">Click × to close. Use browser zoom to enlarge.</div>
+  </div>
+</div>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="tl">
+    <svg class="ashok" viewBox="0 0 34 34" fill="none">
+      <circle cx="17" cy="17" r="16" stroke="#e8c96a" stroke-width="1.5" fill="none"/>
+      <circle cx="17" cy="17" r="8.5" stroke="#e8c96a" stroke-width="1" fill="none"/>
+      <circle cx="17" cy="17" r="2.2" fill="#e8c96a"/>
+      <line x1="17" y1="8.5" x2="17" y2="25.5" stroke="#e8c96a" stroke-width=".8"/>
+      <line x1="8.5" y1="17" x2="25.5" y2="17" stroke="#e8c96a" stroke-width=".8"/>
+      <line x1="10.9" y1="10.9" x2="23.1" y2="23.1" stroke="#e8c96a" stroke-width=".8"/>
+      <line x1="23.1" y1="10.9" x2="10.9" y2="23.1" stroke="#e8c96a" stroke-width=".8"/>
+    </svg>
+    <div>
+      <div class="t-title">Department of Expenditure — CGHS Medical Claim Processor</div>
+      <div class="t-sub">Ministry of Finance &nbsp;·&nbsp; Programme Division &nbsp;·&nbsp; AI-Assisted Sanction Generation</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <span class="badge">POC v1.3</span>
+    <span class="sdot" id="sdot"></span>
+  </div>
+</div>
+
+<!-- STEPS -->
+<div class="steps">
+  <div class="step active" id="st1"><div class="sn">1</div>Upload Documents</div>
+  <div class="sarr">›</div>
+  <div class="step" id="st2"><div class="sn">2</div>OCR Extraction</div>
+  <div class="sarr">›</div>
+  <div class="step" id="st3"><div class="sn">3</div>Review &amp; Edit</div>
+  <div class="sarr">›</div>
+  <div class="step" id="st4"><div class="sn">4</div>Sanction Draft</div>
+</div>
+
+<div class="main">
+
+  <!-- STEP 1 -->
+  <div id="s1">
+    <div class="panel">
+      <div class="ph">
+        <div class="ph-title">📁 Document Packet Upload <span class="tag tag-b">Step 1 of 4</span></div>
+        <div style="font-size:12px;color:var(--g400)">PDF · JPEG · PNG · Multiple files per slot · Click 👁 to view</div>
+      </div>
+      <div class="pb">
+        <div class="alert a-blue">
+          <span class="ai">ℹ</span>
+          <div>Upload all documents. After upload, click <strong>👁 View</strong> on any chip to open the file. The e-Claim is used to verify claimant details, bank account, entitlement and basic pay for hospitalisation ward checks.</div>
+        </div>
+
+        <div class="ugrid">
+          <!-- e-Claim — new slot, spans 2 columns -->
+          <div class="span2">
+            <div class="ulabel" style="color:var(--gold)">⭐ e-Claim (Generated by Claimant) <span style="color:var(--red)">*</span> — <span style="font-weight:400">Used for account &amp; entitlement verification</span></div>
+            <div class="uzone eclaim-zone" id="z4">
+              <input type="file" id="f4" accept=".pdf,.jpg,.jpeg,.png,.tiff" multiple onchange="pick(4,this)">
+              <div class="uico">📋</div>
+              <div class="umn">e-Claim PDF / GIFMIS eBill Printout</div>
+              <div class="uhn">Contains claimant name, basic pay, bank account, PFMS Vendor ID — critical for entitlement check</div>
+              <div class="file-chips" id="chips4"></div>
+            </div>
+          </div>
+
+          <!-- Slot 0 -->
+          <div>
+            <div class="ulabel">① Referral Slip <span style="color:var(--red)">*</span></div>
+            <div class="uzone" id="z0">
+              <input type="file" id="f0" accept=".pdf,.jpg,.jpeg,.png,.tiff" multiple onchange="pick(0,this)">
+              <div class="uico">🧾</div><div class="umn">CGHS Referral Slip</div>
+              <div class="uhn">From CGHS Wellness Centre</div>
+              <div class="file-chips" id="chips0"></div>
+            </div>
+          </div>
+
+          <!-- Slot 1 -->
+          <div>
+            <div class="ulabel">② Medical Bills <span style="color:var(--red)">*</span></div>
+            <div class="uzone" id="z1">
+              <input type="file" id="f1" accept=".pdf,.jpg,.jpeg,.png,.tiff" multiple onchange="pick(1,this)">
+              <div class="uico">🏥</div><div class="umn">Hospital &amp; Diagnostic Bills</div>
+              <div class="uhn">All treatment / investigation bills</div>
+              <div class="file-chips" id="chips1"></div>
+            </div>
+          </div>
+
+          <!-- Slot 2 -->
+          <div>
+            <div class="ulabel">③ CGHS Card <span style="color:var(--red)">*</span></div>
+            <div class="uzone" id="z2">
+              <input type="file" id="f2" accept=".pdf,.jpg,.jpeg,.png,.tiff" multiple onchange="pick(2,this)">
+              <div class="uico">💳</div><div class="umn">CGHS Beneficiary Card</div>
+              <div class="uhn">Front &amp; back</div>
+              <div class="file-chips" id="chips2"></div>
+            </div>
+          </div>
+
+          <!-- Slot 3 -->
+          <div>
+            <div class="ulabel">④ Payment Proof</div>
+            <div class="uzone" id="z3">
+              <input type="file" id="f3" accept=".pdf,.jpg,.jpeg,.png,.tiff" multiple onchange="pick(3,this)">
+              <div class="uico">🧾</div><div class="umn">Payment Receipts</div>
+              <div class="uhn">Receipts / UPI screenshots</div>
+              <div class="file-chips" id="chips3"></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+          <div style="font-size:12px;color:var(--g400)" id="usummary">No files uploaded yet</div>
+          <button class="btn btn-p" id="btngo" disabled onclick="doExtract()">
+            <span id="btngo-txt">🔍 Extract with AI</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 2 -->
+  <div id="s2" class="hidden">
+    <div class="panel">
+      <div class="ph">
+        <div class="ph-title">🔬 OCR Processing <span class="tag tag-b">Step 2 of 4</span></div>
+        <div id="pstatus" style="font-size:12px;color:var(--blue);display:flex;align-items:center;gap:6px"><span class="sdot"></span> Processing...</div>
+      </div>
+      <div class="pb">
+        <div class="pbar-wrap">
+          <div class="pbar-lbl"><span id="plbl">Uploading...</span><span id="ppct">0%</span></div>
+          <div class="pbar"><div class="pbar-fill" id="pfill" style="width:0%"></div></div>
+        </div>
+        <div class="log" id="plog"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 3 -->
+  <div id="s3" class="hidden">
+    <div class="panel">
+      <div class="ph">
+        <div class="ph-title">📊 Review &amp; Edit Extracted Data <span class="tag tag-g">Step 3 of 4</span></div>
+        <div style="font-size:12px;color:var(--gold)">⚠ Yellow = verify · Click 👁 to open source document</div>
+      </div>
+      <div class="pb">
+        <div id="vcards" class="vcards"></div>
+        <!-- HOSPITALISATION ENTITLEMENT PANEL -->
+        <div id="hosp-panel" class="hidden"></div>
+        <div id="alerts"></div>
+        <div class="legend">
+          <strong style="font-size:12px;color:var(--navy)">Legend:</strong>
+          <div class="legend-item"><span class="cb ch">↑ HIGH</span><span>No action needed</span></div>
+          <div class="legend-item"><span class="cb cm">~ MED</span><span>Verify against source</span></div>
+          <div class="legend-item"><span class="cb cl">↓ LOW</span><span>Not found — fill manually</span></div>
+          <div class="legend-item"><span style="font-size:13px">👁</span><span>Open document at that page</span></div>
+        </div>
+        <div class="tabs">
+          <div class="tab active" onclick="swTab('cl')">Claimant Details</div>
+          <div class="tab" onclick="swTab('bl')">Bill Breakdown</div>
+          <div class="tab" onclick="swTab('rw')">Raw JSON</div>
+        </div>
+        <div id="t-cl">
+          <table class="etbl">
+            <thead><tr><th style="width:180px">Field</th><th>Value</th><th style="width:100px">Confidence</th><th>Source Document &amp; Page</th></tr></thead>
+            <tbody id="tbl-cl-body"></tbody>
+          </table>
+        </div>
+        <div id="t-bl" class="hidden">
+          <div style="overflow-x:auto">
+            <table class="btbl">
+              <thead><tr><th>Bill No. / Source</th><th>Date</th><th style="min-width:150px">Procedure</th><th>CGHS Code</th><th>CGHS Rate</th><th>Qty</th><th>Claimed</th><th>Admissible</th><th>Remarks</th><th></th></tr></thead>
+              <tbody id="tbl-bl-body"></tbody>
+              <tfoot id="tbl-bl-foot"></tfoot>
+            </table>
+          </div>
+          <div style="margin-top:10px"><button class="btn btn-o btn-sm" onclick="addBillRow()">+ Add Row</button></div>
+        </div>
+        <div id="t-rw" class="hidden"><div class="rawbox" id="rawbox"></div></div>
+        <div style="margin-top:18px;display:flex;justify-content:flex-end;gap:10px">
+          <button class="btn btn-o" onclick="reset()">↩ Start Over</button>
+          <button class="btn btn-p" onclick="doSanction()"><span id="sbtn">📄 Generate Sanction</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 4 -->
+  <div id="s4" class="hidden">
+    <div class="panel">
+      <div class="ph">
+        <div class="ph-title">✅ Sanction Draft <span class="tag tag-g">Step 4 of 4</span></div>
+        <div style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--green);font-weight:500"><span class="sdot ok"></span>Fully editable — click any text to modify</div>
+      </div>
+      <div class="alert a-gold" style="margin:12px 20px 0">
+        <span class="ai">⚠</span>
+        <div><strong>PD Dealing Hand Review Required.</strong> Click in the document to edit. Verify all amounts, names, CGHS codes and ward entitlement before submitting.</div>
+      </div>
+      <div class="pb">
+        <div class="sanc-wrapper">
+          <div class="sanc-toolbar">
+            <span style="font-size:12px;color:var(--g400)">Format:</span>
+            <button class="tool-btn" onclick="document.execCommand('bold')"><b>B</b></button>
+            <button class="tool-btn" onclick="document.execCommand('italic')"><i>I</i></button>
+            <button class="tool-btn" onclick="document.execCommand('underline')"><u>U</u></button>
+            <div style="flex:1"></div>
+            <span style="font-size:11px;color:var(--g400)" id="gen-ts"></span>
+          </div>
+          <div class="sanc" id="sanc-body" contenteditable="true" spellcheck="false"></div>
+        </div>
+      </div>
+      <div class="abar">
+        <div style="font-size:12px;color:var(--g400)">Generated: <span id="gen-ts2"></span></div>
+        <div style="display:flex;gap:9px;flex-wrap:wrap">
+          <button class="btn btn-o" onclick="cpyTxt()">📋 Copy Text</button>
+          <button class="btn btn-gd" onclick="dlTxt()">⬇ Download .txt</button>
+          <button class="btn btn-g" onclick="fakeSubmit()">→ Submit for Approval</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ════ STATE ════ */
+const FS=[[], [], [], [], []]; // slots 0-3 = referral/bills/card/payment, slot 4 = e-claim
+let xdata=null;
+
+/* ════ FILE HANDLING ════ */
+function pick(slot, inp){
+  Array.from(inp.files).forEach(f=>{
+    if(!FS[slot].find(x=>x.name===f.name&&x.size===f.size)) FS[slot].push(f);
+  });
+  inp.value=''; renderChips(slot); updateSummary();
+}
+function removeFile(slot,name,size){
+  FS[slot]=FS[slot].filter(f=>!(f.name===name&&f.size===size));
+  renderChips(slot); updateSummary();
+}
+function renderChips(slot){
+  document.getElementById('z'+slot).classList.toggle('ok',FS[slot].length>0);
+  document.getElementById('chips'+slot).innerHTML=FS[slot].map(f=>{
+    const lbl=f.name.length>16?f.name.slice(0,14)+'…':f.name;
+    return `<span class="chip" title="${f.name}">${lbl}<span class="chip-view" onclick="event.stopPropagation();previewLocal(${slot},'${esc(f.name)}')">👁</span><span class="chip-x" onclick="event.stopPropagation();removeFile(${slot},'${esc(f.name)}',${f.size})">×</span></span>`;
+  }).join('');
+}
+function updateSummary(){
+  const total=FS.reduce((s,a)=>s+a.length,0);
+  const cats=FS.filter(a=>a.length>0).length;
+  document.getElementById('usummary').textContent=total>0?`${total} file(s) across ${cats} slot(s)`:'No files uploaded yet';
+  // Require e-claim (slot4), referral (0), bills (1), cghs card (2)
+  document.getElementById('btngo').disabled=!(FS[4].length&&FS[0].length&&FS[1].length&&FS[2].length);
+}
+
+/* ════ FILE VIEWER ════ */
+// Preview before upload (local blob URL)
+function previewLocal(slot, name){
+  const f=FS[slot].find(x=>x.name===name);
+  if(!f) return;
+  const url=URL.createObjectURL(f);
+  openViewer(name, url, f.type);
+}
+// Preview after upload (server-side, by filename)
+function previewServer(filename){
+  const url=`/api/preview/${encodeURIComponent(filename)}`;
+  // Guess mime from extension
+  const ext=filename.split('.').pop().toLowerCase();
+  const mime=ext==='pdf'?'application/pdf':['jpg','jpeg','png','tiff','gif'].includes(ext)?'image/'+ext:'application/octet-stream';
+  openViewer(filename, url, mime);
+}
+function openViewer(name, url, mime){
+  document.getElementById('viewer-title').textContent='📄 '+name;
+  document.getElementById('viewer-footer').textContent=name+' — Click × or outside to close';
+  const body=document.getElementById('viewer-body');
+  if(mime==='application/pdf'){
+    body.innerHTML=`<iframe src="${url}" style="width:100%;height:100%;border:none"></iframe>`;
+  } else if(mime.startsWith('image/')){
+    body.innerHTML=`<img src="${url}" alt="${name}" style="width:100%;height:100%;object-fit:contain;background:#fff">`;
+  } else {
+    body.innerHTML=`<div style="padding:24px;color:var(--g600)">Cannot preview this file type. <a href="${url}" target="_blank" style="color:var(--blue)">Open in new tab</a></div>`;
+  }
+  document.getElementById('viewer-bg').classList.remove('hidden');
+}
+function closeViewer(e){ if(e.target===document.getElementById('viewer-bg')) closeViewerDirect(); }
+function closeViewerDirect(){
+  document.getElementById('viewer-bg').classList.add('hidden');
+  document.getElementById('viewer-body').innerHTML='';
+}
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeViewerDirect(); });
+
+/* ════ STEPS ════ */
+function setStep(n){
+  [1,2,3,4].forEach(i=>{
+    const el=document.getElementById('st'+i);
+    el.className='step'+(i<n?' done':i===n?' active':'');
+    el.querySelector('.sn').textContent=i<n?'✓':i;
+  });
+}
+
+/* ════ LOG / PROGRESS ════ */
+function lg(lv,msg){
+  const box=document.getElementById('plog');
+  const ts=new Date().toLocaleTimeString('en-IN',{hour12:false});
+  const s=document.createElement('span');s.className='ll';
+  s.innerHTML=`<span class="lts">[${ts}]</span><span class="${lv==='w'?'lw':lv==='e'?'le':''}">${msg}</span>`;
+  box.appendChild(s);box.scrollTop=box.scrollHeight;
+}
+function prog(pct,lbl){
+  document.getElementById('pfill').style.width=pct+'%';
+  document.getElementById('ppct').textContent=pct+'%';
+  document.getElementById('plbl').textContent=lbl;
+}
+
+/* ════ EXTRACT ════ */
+async function doExtract(){
+  document.getElementById('s2').classList.remove('hidden');
+  ['s3','s4'].forEach(id=>document.getElementById(id).classList.add('hidden'));
+  setStep(2);
+  const fd=new FormData(); let n=0;
+  FS.forEach(arr=>arr.forEach(f=>{fd.append('files',f);n++;}));
+  lg('',`Uploading ${n} file(s) including e-Claim...`);
+  prog(15,'Uploading files...');
+  try {
+    lg('','Sending to Claude AI — OCR, hospitalisation detection, entitlement check...');
+    prog(40,'AI reading all documents...');
+    const res=await fetch('/api/extract',{method:'POST',body:fd});
+    prog(80,'Parsing response...');
+    if(!res.ok){const e=await res.json();throw new Error(e.error||`Server error ${res.status}`);}
+    const data=await res.json();
+    const lowMed=countLowMed(data);
+    prog(100,`Done — ${(data.bills||[]).length} procedure(s), ${lowMed} field(s) need verification`);
+    lg('',`✓ Complete. Hospitalisation: ${data.hospitalisation?.is_hospitalisation?'YES':'No'}. ${lowMed} field(s) flagged.`);
+    document.getElementById('pstatus').innerHTML='<span class="sdot ok"></span> <span style="color:var(--green)">Complete</span>';
+    await sleep(300);
+    renderData(data);
+  } catch(err){
+    lg('e',err.message);
+    document.getElementById('pstatus').innerHTML=`<span class="sdot" style="background:var(--red);animation:none"></span> <span style="color:var(--red)">${err.message}</span>`;
+  }
+}
+
+function countLowMed(data){
+  let c=0;
+  function scan(o){ if(!o||typeof o!=='object')return; if('conf'in o&&(o.conf==='med'||o.conf==='low'))c++; else Object.values(o).forEach(v=>Array.isArray(v)?v.forEach(scan):scan(v)); }
+  scan(data); return c;
+}
+
+/* ════ RENDER DATA ════ */
+function renderData(data){
+  xdata=data;
+  setStep(3);
+  document.getElementById('s3').classList.remove('hidden');
+  document.getElementById('s4').classList.add('hidden');
+
+  const f=data.flags||{};
+  document.getElementById('vcards').innerHTML=[
+    {l:'Document Sequence', s:'pass',i:'✓'},
+    {l:'Account Verified',  s:f.account_verified?'pass':'fail',i:f.account_verified?'✓':'✗'},
+    {l:'Referral Valid',    s:f.referral_valid?'pass':'fail',  i:f.referral_valid?'✓':'✗'},
+    {l:'NABH/Empanelled',   s:f.nabh_verified?'pass':'warn',  i:f.nabh_verified?'✓':'!'},
+    {l:'Unlisted Procedure',s:f.has_unlisted_procedure?'warn':'pass',i:f.has_unlisted_procedure?'!':'✓'},
+    {l:'Hospitalisation',   s:data.hospitalisation?.is_hospitalisation?'warn':'pass',i:data.hospitalisation?.is_hospitalisation?'🏥':'✓'},
+  ].map(c=>`<div class="vc ${c.s}"><span class="vi">${c.i}</span><span class="vt">${c.l}</span></div>`).join('');
+
+  // ── Hospitalisation & Entitlement Panel ──
+  renderEntitlementPanel(data);
+
+  let ah='';
+  if(f.has_unlisted_procedure) ah+=`<div class="alert a-gold"><span class="ai">⚠</span><div><strong>Unlisted Procedure</strong> — Ex-post-facto approval from CA(F) required.</div></div>`;
+  if((f.notes||[]).length) ah+=`<div class="alert a-green"><span class="ai">ℹ</span><div>${f.notes.join(' · ')}</div></div>`;
+  document.getElementById('alerts').innerHTML=ah;
+
+  // Claimant rows
+  const c=data.claimant||{}, r=data.referral||{}, h=data.hospital||{};
+  const rows=[
+    {grp:'claimant',key:'name',           label:'Claimant Name'},
+    {grp:'claimant',key:'designation',    label:'Designation'},
+    {grp:'claimant',key:'department',     label:'Department'},
+    {grp:'claimant',key:'cghs_card_no',   label:'CGHS Card No.'},
+    {grp:'claimant',key:'crn',            label:'CRN'},
+    {grp:'claimant',key:'basic_pay',      label:'Basic Pay (7th CPC)'},
+    {grp:'claimant',key:'pay_level',      label:'Pay Level'},
+    {grp:'claimant',key:'pfms_vendor_id', label:'PFMS Vendor ID'},
+    {grp:'claimant',key:'bank_account',   label:'Bank Account No.'},
+    {grp:'claimant',key:'ifsc_code',      label:'IFSC Code'},
+    {grp:'claimant',key:'bank_name',      label:'Bank Name'},
+    {grp:'referral',key:'patient_name',   label:'Patient Name'},
+    {grp:'referral',key:'relation',       label:'Relation'},
+    {grp:'referral',key:'wellness_centre',label:'CGHS Wellness Centre'},
+    {grp:'referral',key:'referral_id',    label:'Referral ID'},
+    {grp:'referral',key:'referral_date',  label:'Referral Date'},
+    {grp:'referral',key:'valid_upto',     label:'Valid Upto'},
+    {grp:'hospital',key:'name',           label:'Hospital / Centre'},
+    {grp:'hospital',key:'nabh_nabl',      label:'Accreditation'},
+  ];
+  const srcMap={claimant:c,referral:r,hospital:h};
+  document.getElementById('tbl-cl-body').innerHTML=rows.map(row=>{
+    const fld=gf(srcMap[row.grp],row.key);
+    if(!fld.value||fld.value==='Not found') fld.conf='low';
+    const editable=fld.conf==='med'||fld.conf==='low';
+    const bc=fld.conf==='high'?'ch':fld.conf==='med'?'cm':'cl';
+    const bt=fld.conf==='high'?'↑ HIGH':fld.conf==='med'?'~ MED':'↓ LOW';
+    const valCell=editable
+      ?`<div><input class="edit-input${fld.conf==='low'?' conf-low':''}" data-grp="${row.grp}" data-key="${row.key}" value="${esc(fld.value||'')}" placeholder="Enter ${row.label}" oninput="syncF('${row.grp}','${row.key}',this.value)"><div class="edit-note">⚠ Verify against source →</div></div>`
+      :`<span class="fv">${fld.value||'<span style="color:var(--g400)">—</span>'}</span>`;
+    const srcCell=editable?buildSrcBadge(fld,true):'<span style="color:var(--g400);font-size:12px">—</span>';
+    return `<tr><td class="fk">${row.label}</td><td>${valCell}</td><td><span class="cb ${bc}">${bt}</span></td><td>${srcCell}</td></tr>`;
+  }).join('');
+
+  renderBills();
+  document.getElementById('rawbox').textContent=JSON.stringify(data,null,2);
+  document.getElementById('s3').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+/* ════ ENTITLEMENT PANEL ════ */
+function renderEntitlementPanel(data){
+  const panel=document.getElementById('hosp-panel');
+  const hosp=data.hospitalisation||{};
+  const ent=data.entitlement||{};
+  const isHosp=hosp.is_hospitalisation===true;
+
+  if(!isHosp){
+    panel.innerHTML=`<div class="hosp-card" style="background:var(--g50);border-color:var(--g200)">
+      <div class="hosp-title">🏥 Hospitalisation Check</div>
+      <div style="font-size:13px;color:var(--g600)">No hospitalisation detected — this is an <strong>outpatient claim</strong>. Ward entitlement check not applicable.</div>
+    </div>`;
+    panel.classList.remove('hidden');
+    return;
+  }
+
+  const flagCls=ent.ward_flag==='fail'?'warn':ent.ward_flag==='pass'?'ok':'';
+  const admDate=gv(hosp.admission_date)||'—';
+  const disDate=gv(hosp.discharge_date)||'—';
+  const days=gv(hosp.days)||'—';
+  const wardClaimed=ent.ward_claimed||'Not identified';
+
+  panel.innerHTML=`<div class="hosp-card ${flagCls}">
+    <div class="hosp-title">🏥 Hospitalisation Detected — Ward Entitlement Check
+      <span class="tag ${ent.ward_flag==='fail'?'tag-r':ent.ward_flag==='pass'?'tag-g':'tag-gd'}">${ent.ward_flag==='fail'?'⚠ MISMATCH':ent.ward_flag==='pass'?'✓ OK':'INFO'}</span>
+    </div>
+    <div class="hosp-grid">
+      <div class="hosp-field"><div class="hosp-lbl">Admission Date</div><div class="hosp-val">${admDate}</div></div>
+      <div class="hosp-field"><div class="hosp-lbl">Discharge Date</div><div class="hosp-val">${disDate}</div></div>
+      <div class="hosp-field"><div class="hosp-lbl">Duration</div><div class="hosp-val">${days} day(s)</div></div>
+      <div class="hosp-field"><div class="hosp-lbl">Ward Claimed</div><div class="hosp-val ${ent.ward_flag==='fail'?'fail':''}">${wardClaimed}</div></div>
+      <div class="hosp-field"><div class="hosp-lbl">Basic Pay (from e-Claim)</div><div class="hosp-val">${ent.basic_pay>0?'₹'+Number(ent.basic_pay).toLocaleString('en-IN'):'Not found in documents'}</div></div>
+      <div class="hosp-field"><div class="hosp-lbl">Ward Entitlement</div><div class="hosp-val ${ent.ward_flag==='pass'?'ok':ent.ward_flag==='fail'?'fail':'warn'}">${ent.entitled_label||'Cannot determine'}</div></div>
+      <div class="hosp-field" style="grid-column:span 2"><div class="hosp-lbl">Verdict</div><div class="hosp-val ${ent.ward_flag==='pass'?'ok':ent.ward_flag==='fail'?'fail':'warn'}">${ent.ward_match||'—'}</div></div>
+      <div class="hosp-field" style="grid-column:span 2"><div class="hosp-lbl">Amount Admissible Being Processed</div><div class="hosp-val">₹${Number(data.totals?.total_admissible||0).toLocaleString('en-IN')}</div></div>
+    </div>
+    ${ent.ward_flag==='fail'?`<div class="alert a-red" style="margin-top:12px;margin-bottom:0"><span class="ai">⚠</span><div><strong>Action Required:</strong> The ward claimed (${wardClaimed}) exceeds the claimant's entitlement (${ent.entitled_ward} ward). The admissible amount must be restricted to the rate applicable for the entitled ward. Please correct before generating sanction.</div></div>`:''}
+    <div class="om-ref">Reference: ${ent.om_reference||'MoHFW OM F.No.S.11011/11/2016-CGHS(P)/EHS dated 28th October 2022'}</div>
+  </div>`;
+  panel.classList.remove('hidden');
+}
+
+/* ════ SOURCE BADGE ════ */
+function buildSrcBadge(fld, showViewBtn){
+  const notFound=!fld.source_file||fld.source_file==='Not found'||fld.source_page===0;
+  const cls=notFound?'source-cite not-found':'source-cite';
+  const icon=notFound?'❌':'📄';
+  const fileLabel=notFound?'Not found':trunc(fld.source_file,26);
+  const pgLabel=notFound?'N/A':`Pg ${fld.source_page}`;
+  const viewBtn=(!notFound&&showViewBtn)?`<span class="src-view-btn" onclick="previewServer('${esc(fld.source_file)}')" title="Open document">👁 View</span>`:'';
+  return `<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+    <div class="${cls}" title="${esc(fld.source_file||'')} page ${fld.source_page}">
+      <span class="src-icon">${icon}</span>
+      <span class="src-file">${esc(fileLabel)}</span>
+      <span class="src-sep">·</span>
+      <span class="src-pg">${pgLabel}</span>
+    </div>${viewBtn}
+  </div>`;
+}
+function buildSrcMini(fld){
+  if(!fld||typeof fld!=='object'||!('conf'in fld)||fld.conf==='high') return '';
+  const notFound=!fld.source_file||fld.source_file==='Not found'||fld.source_page===0;
+  const cls=notFound?'src-mini low':'src-mini';
+  const label=notFound?'Not found':`${trunc(fld.source_file,18)}·Pg${fld.source_page}`;
+  const view=(!notFound)?`<span class="src-view-btn" style="font-size:9px" onclick="previewServer('${esc(fld.source_file)}')">👁</span>`:'';
+  return `<div style="display:flex;align-items:center;gap:3px"><div class="${cls}">📄 ${esc(label)}</div>${view}</div>`;
+}
+
+/* ════ SYNC FIELD EDITS ════ */
+function syncF(grp,key,val){
+  if(!xdata) return;
+  const obj=grp==='claimant'?xdata.claimant:grp==='referral'?xdata.referral:xdata.hospital;
+  if(!obj) return;
+  if(obj[key]&&typeof obj[key]==='object'&&'value'in obj[key]) obj[key].value=val;
+  else obj[key]=val;
+}
+function gf(obj,key){
+  if(!obj) return{value:'',conf:'low',source_file:'',source_page:0};
+  const v=obj[key];
+  if(v&&typeof v==='object'&&'value'in v) return v;
+  return{value:v||'',conf:'high',source_file:'',source_page:0};
+}
+function gv(f){ if(f==null)return''; if(typeof f==='object'&&'value'in f)return f.value; return f; }
+
+/* ════ BILLS TABLE ════ */
+function getBF(b,k){ const v=b[k]; if(v&&typeof v==='object'&&'value'in v)return v; return{value:v||'',conf:'high',source_file:'',source_page:0}; }
+function getBV(b,k){ return getBF(b,k).value; }
+
+function renderBills(){
+  const bills=xdata.bills||[], t=xdata.totals||{};
+  document.getElementById('tbl-bl-body').innerHTML=bills.map((b,i)=>{
+    const bno=getBF(b,'bill_no'), bdt=getBF(b,'bill_date'), prc=getBF(b,'procedure');
+    const cod=getBF(b,'cghs_rate_sno'), rat=getBF(b,'cghs_rate'), qty=getBF(b,'qty');
+    const ac=getBF(b,'amount_claimed'), aa=getBF(b,'amount_admissible'), rem=getBF(b,'remarks');
+    return`<tr>
+      <td><input class="cell-in${bno.conf!=='high'?' flagged':''}" value="${esc(bno.value||'')}" onchange="UB(${i},'bill_no',this.value)" style="min-width:90px">${buildSrcMini(bno)}</td>
+      <td><input class="cell-in${bdt.conf!=='high'?' flagged':''}" value="${esc(bdt.value||'')}" onchange="UB(${i},'bill_date',this.value)" style="min-width:90px">${buildSrcMini(bdt)}</td>
+      <td><input class="cell-in${(prc.conf!=='high'||b.is_unlisted)?' flagged':''}" value="${esc(prc.value||'')}" onchange="UB(${i},'procedure',this.value)" style="min-width:140px">${b.is_unlisted?'<div class="src-mini low">⚠ UNLISTED</div>':''}${buildSrcMini(prc)}</td>
+      <td><input class="cell-in${cod.conf!=='high'?' flagged':''}" value="${esc(cod.value||'')}" onchange="UB(${i},'cghs_rate_sno',this.value)" style="width:65px">${buildSrcMini(cod)}</td>
+      <td><input class="cell-in" type="number" value="${rat.value||0}" onchange="UB(${i},'cghs_rate',this.value)" style="width:70px"></td>
+      <td><input class="cell-in" type="number" value="${qty.value||1}" onchange="UB(${i},'qty',this.value);recalcR(${i})" style="width:45px"></td>
+      <td><input class="cell-in" type="number" value="${ac.value||0}" onchange="UB(${i},'amount_claimed',this.value);recalcT()" style="width:80px"></td>
+      <td><input class="cell-in" type="number" value="${aa.value||0}" onchange="UB(${i},'amount_admissible',this.value);recalcT()" style="width:80px"></td>
+      <td><input class="cell-in" value="${esc(rem.value||'')}" onchange="UB(${i},'remarks',this.value)" style="min-width:100px"></td>
+      <td><button class="btn btn-o btn-sm" style="padding:3px 7px;color:var(--red)" onclick="rmBill(${i})">×</button></td>
+    </tr>`;
+  }).join('');
+  document.getElementById('tbl-bl-foot').innerHTML=`<tr>
+    <td colspan="6" style="text-align:right;padding:8px;font-weight:500;border-bottom:none">TOTAL</td>
+    <td id="ft-c" style="padding:6px;font-weight:500;border-bottom:none">₹${fmt(t.total_claimed||0)}</td>
+    <td id="ft-a" style="padding:6px;font-weight:500;border-bottom:none">₹${fmt(t.total_admissible||0)}</td>
+    <td colspan="2" style="border-bottom:none"></td>
+  </tr>`;
+}
+function UB(i,k,v){ if(!xdata.bills[i])return; const f=xdata.bills[i][k]; if(f&&typeof f==='object'&&'value'in f)f.value=v; else xdata.bills[i][k]=v; }
+function recalcR(i){ const b=xdata.bills[i]; const r=parseFloat(getBV(b,'cghs_rate')||0),q=parseInt(getBV(b,'qty')||1),amt=r*q; ['amount_claimed','amount_admissible'].forEach(k=>{const f=b[k]; if(f&&typeof f==='object'&&'value'in f)f.value=amt; else b[k]=amt;}); renderBills();recalcT(); }
+function recalcT(){ const tc=xdata.bills.reduce((s,b)=>s+parseFloat(getBV(b,'amount_claimed')||0),0),ta=xdata.bills.reduce((s,b)=>s+parseFloat(getBV(b,'amount_admissible')||0),0); xdata.totals={total_claimed:tc,total_admissible:ta}; const fc=document.getElementById('ft-c'),fa=document.getElementById('ft-a'); if(fc)fc.textContent='₹'+fmt(tc); if(fa)fa.textContent='₹'+fmt(ta); }
+function rmBill(i){ xdata.bills.splice(i,1);renderBills();recalcT(); }
+function addBillRow(){ xdata.bills.push({bill_no:{value:'',conf:'low',source_file:'',source_page:0},bill_date:{value:'',conf:'low',source_file:'',source_page:0},procedure:{value:'',conf:'low',source_file:'',source_page:0},cghs_rate_sno:{value:'',conf:'low',source_file:'',source_page:0},cghs_rate:{value:0,conf:'low',source_file:'',source_page:0},qty:{value:1,conf:'high',source_file:'',source_page:0},amount_claimed:{value:0,conf:'low',source_file:'',source_page:0},amount_admissible:{value:0,conf:'low',source_file:'',source_page:0},remarks:{value:'',conf:'low',source_file:'',source_page:0},is_unlisted:false}); renderBills(); }
+
+/* ════ TABS ════ */
+function swTab(id){ ['cl','bl','rw'].forEach(t=>document.getElementById('t-'+t).classList.toggle('hidden',t!==id)); document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('active',['cl','bl','rw'][i]===id)); }
+
+/* ════ SANCTION ════ */
+async function doSanction(){
+  document.getElementById('sbtn').innerHTML='<span class="spin"></span> Generating...';
+  try{
+    const res=await fetch('/api/sanction',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({extractedData:xdata})});
+    if(!res.ok){const e=await res.json();throw new Error(e.error);}
+    await res.json();
+  }catch(e){/* fallthrough to local render */}
+  renderSanction();
+  document.getElementById('sbtn').textContent='📄 Generate Sanction';
+}
+
+function fv(f){ if(f==null)return''; if(typeof f==='object'&&'value'in f)return f.value; return f||''; }
+
+function renderSanction(){
+  const d=xdata||{},c=d.claimant||{},r=d.referral||{},h=d.hospital||{};
+  const bills=(d.bills||[]),t=d.totals||{},f=d.flags||{};
+  const now=new Date(),tca=parseFloat(t.total_claimed||0),tad=parseFloat(t.total_admissible||0);
+  const fy=getFY(), ca=tad>=500000?'CCA (F)':'CA(F)';
+  const rel=(fv(r.relation)||'').toLowerCase();
+  const pronoun=rel.match(/mother|wife|daughter|sister/)?'she':'he';
+  const pp=pronoun==='she'?'her':'his';
+  const isAyur=bills.some(b=>(fv(b.procedure)||'').toLowerCase().match(/abhyanga|shiro|janu|ayur|panca|vasti/));
+  const centreType=isAyur?'CGHS empaneled Ayurvedic Centre':'CGHS empaneled Hospital';
+  const isHosp=d.hospitalisation?.is_hospitalisation===true;
+  const entWarn=d.entitlement?.ward_flag==='fail';
+
+  const bRows=bills.map(b=>`<tr>
+    <td class="tl" style="font-size:12px">Bill No. ${fv(b.bill_no)||''}<br>${fv(b.bill_date)||''}<br>(${b.is_unlisted?'Investigation':isHosp?'Hospitalisation':'Procedures'})</td>
+    <td class="tl">${fv(b.procedure)||''}</td>
+    <td>${fv(b.cghs_rate_sno)||''}</td><td>${fmt(fv(b.cghs_rate)||0)}</td><td>${fv(b.qty)||1}</td>
+    <td>${fmt(fv(b.amount_claimed)||0)}<br><span style="font-size:10px">(${fmt(fv(b.cghs_rate)||0)}×${fv(b.qty)||1})</span></td>
+    <td>${fmt(fv(b.amount_admissible)||0)}</td>
+    <td class="tl" style="font-size:11.5px">${b.is_unlisted?'Unlisted*<br>Ex-post-facto req.':(fv(b.remarks)||'As per CGHS Rate List')}</td>
+  </tr>`).join('');
+
+  const ts=now.toLocaleDateString('en-GB',{day:'2-digit',month:'2-digit',year:'numeric'}).replace(/\//g,'-')+' '+now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:false})+' '+(now.getHours()<12?'am':'pm');
+  const cName=fv(c.name),cDes=fv(c.designation),cDept=fv(c.department),cCard=fv(c.cghs_card_no),cCrn=fv(c.crn);
+  const pName=fv(r.patient_name),wc=fv(r.wellness_centre),hName=fv(h.name),hAccr=fv(h.nabh_nabl);
+
+  const hospNote=isHosp?`<p class="sp" style="font-size:12px">[Hospitalisation claim: ${d.entitlement?.entitled_label||'Ward entitlement as per MoHFW OM dated 28.10.2022'}${entWarn?' — WARD ENTITLEMENT MISMATCH DETECTED. Amount restricted to entitled ward rate.':''}]</p>`:'';
+
+  document.getElementById('sanc-body').innerHTML=`
+<div class="file-ref">File No. No.CCA(F)/Pr.AO(Admin)/Medical/Claims/2017-18/2019-20 (Computer No. ${cCrn||'300425430'})</div>
+<div class="note-no">Note #</div>
+<div class="sub-line">Sub: Medical Reimbursement claim in r/o ${cName||'[Name]'}, ${cDes||'[Designation]'}, ${cDept||'[Department]'}.</div>
+<p class="sp">PUC may please be seen</p>
+<p class="sp">2.&nbsp; ${cName||'[Name]'}, ${cDes||''} has submitted medical reimbursement claim of Rs.${fmt(tca)}/- for ${isHosp?'hospitalisation':'undertaking procedures'} in r/o ${rel?`his/her ${rel}`:'dependent'} from ${hName||'[Hospital]'}. ${hName||'[Hospital]'} is ${hAccr&&hAccr!=='Not found'?hAccr:'CGHS empaneled'}.</p>
+<p class="sp">3.&nbsp; The ${wc||'CGHS Wellness Centre'} has referred ${pName||'[patient]'} ${rel?rel+' of ':''} ${cName||'[Name]'}, ${cDes||''}, undertake ${isHosp?'treatment/hospitalisation':'procedures'} from any Govt. Hospital/any CGHS empaneled HCO. ${pronoun==='she'?'She':'He'} ${isHosp?'was admitted to':'took procedures from'} ${hName||'[Hospital]'}. ${pronoun==='she'?'She':'He'} is CGHS beneficiary and ${pp} CGHS card (${cCard||'[card no.]'}) enclosed with claim.</p>
+<p class="sp">4.&nbsp; The details of the claim in r/o ${pName||'[patient]'} ${rel?rel+' of ':''} ${cName||'[Name]'}, ${cDes||''} are as under :-</p>
+<table class="sanc-tbl"><thead><tr><th>Voucher/Date</th><th>Procedure/Item</th><th>CGHS Code no.</th><th>CGHS Rate</th><th>Qty</th><th>Amount Claimed</th><th>Amount Admissible</th><th>Remarks</th></tr></thead>
+<tbody>${bRows}</tbody>
+<tfoot><tr class="tot-row"><td colspan="5" style="text-align:right">Total</td><td>${fmt(tca)}</td><td>${fmt(tad)}</td><td></td></tr></tfoot></table>
+${f.has_unlisted_procedure?'<p class="sp" style="font-size:12px">*Unlisted procedure — reimbursement as per actuals subject to Ex-Post Facto approval of Competent Authority (MoHFW CGHS guidelines).</p>':''}
+${hospNote}
+<p class="sp">5.&nbsp; All required documents like CGHS referral slip, receipt/invoices, prescriptions, copy of CGHS Card have been attached and verified. Claims have been found according to the extant rules of CGHS.${entWarn?' However, the ward claimed exceeds the claimant\'s entitlement and the amount has been restricted accordingly.':''}</p>
+<p class="sp">6.&nbsp; In view of above, ${ca} being the Competent Authority may kindly approve the medical claim and accord financial sanction to reimburse of Rs.${fmt(tad)}/- (Rupees ${n2w(tad)} only) to ${cName||'[Name]'}, ${cDes||''} for ${isHosp?'hospitalisation':'undertaking procedures'} in r/o ${rel?`his/her ${rel}`:'dependent'} from ${centreType}. This expenditure will be debited to the budget grant of PAO (Expenditure) under 'medical treatment' for the FY ${fy}.</p>
+<p class="sp">Submitted for approval please.</p>
+<div class="sanc-footer">File No. No.CCA(F)/Pr.AO(Admin)/Medical/Claims/2017-18/2019-20 (Computer No. ${cCrn||'300425430'})<br>Generated from eOffice by [Dealing Hand Name], DoE-Sr.Accountant(Pr. AO (ADMN)-CCA(DOE))-H.S, SENIOR ACCOUNTANT, DOE on ${ts}</div>`;
+
+  setStep(4);
+  document.getElementById('s4').classList.remove('hidden');
+  const ns=now.toLocaleString('en-IN');
+  document.getElementById('gen-ts').textContent=ns;
+  document.getElementById('gen-ts2').textContent=ns;
+  document.getElementById('s4').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+/* ════ UTILS ════ */
+function getFY(){const d=new Date(),y=d.getFullYear(),m=d.getMonth();return m>=3?`${y}-${String(y+1).slice(-2)}`:`${y-1}-${String(y).slice(-2)}`;}
+function fmt(n){return Number(n||0).toLocaleString('en-IN');}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/'/g,'&#39;');}
+function trunc(s,n){return s&&s.length>n?s.slice(0,n-1)+'…':(s||'');}
+function n2w(n){
+  if(!n)return'Zero';
+  const o=['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+  const t=['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+  function cv(x){if(!x)return'';if(x<20)return o[x]+' ';if(x<100)return t[Math.floor(x/10)]+' '+(x%10?o[x%10]+' ':'');if(x<1000)return o[Math.floor(x/100)]+' Hundred '+cv(x%100);if(x<100000)return cv(Math.floor(x/1000))+'Thousand '+cv(x%1000);if(x<10000000)return cv(Math.floor(x/100000))+'Lakh '+cv(x%100000);return cv(Math.floor(x/10000000))+'Crore '+cv(x%10000000);}
+  return cv(Math.round(n)).trim();
+}
+function cpyTxt(){navigator.clipboard.writeText(document.getElementById('sanc-body').innerText).then(()=>{const b=event.target,o=b.textContent;b.textContent='✓ Copied!';setTimeout(()=>b.textContent=o,2000);});}
+function dlTxt(){if(!xdata)return;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([document.getElementById('sanc-body').innerText],{type:'text/plain'}));a.download=`Sanction_${(fv(xdata.claimant?.name)||'Draft').replace(/\s/g,'_')}.txt`;a.click();}
+function fakeSubmit(){alert('In the full system this routes the sanction via eOffice.\nCRN: '+(fv(xdata?.claimant?.crn)||'N/A'));}
+function reset(){['s2','s3','s4'].forEach(id=>document.getElementById(id).classList.add('hidden'));document.getElementById('plog').innerHTML='';setStep(1);}
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+</script>
+</body>
+</html>
