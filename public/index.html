@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CGHS Medical Claim Processor — Department of Expenditure</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf_viewer.min.css">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -205,6 +207,20 @@ body{font-family:var(--font);background:var(--g50);color:var(--g800);min-height:
 
 .abar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;padding:14px 20px;background:var(--g50);border-top:1px solid var(--g200)}
 
+/* PDF VIEWER */
+.pdf-outer{width:100%;height:100%;overflow:auto;background:#525659;display:flex;flex-direction:column;align-items:center;padding:12px 0;gap:10px}
+.pdf-page-wrap{position:relative;box-shadow:0 2px 10px rgba(0,0,0,.4)}
+.pdf-page-wrap canvas{display:block}
+.viewer-nav{display:flex;align-items:center;gap:8px;padding:7px 14px;background:#fff;border-bottom:1px solid var(--g200);font-size:12px;flex-shrink:0;flex-wrap:wrap}
+.vn-pg{display:flex;align-items:center;gap:5px}
+.vn-pg input{width:40px;text-align:center;border:1px solid var(--g200);border-radius:4px;padding:2px 4px;font-size:12px}
+.hl-banner{background:var(--gold-l);border-bottom:1px solid var(--gold-b);padding:6px 14px;font-size:11.5px;color:#7a4f04;display:flex;align-items:center;gap:6px;flex-shrink:0}
+.hl-banner code{background:#fff;border:1px solid var(--gold-b);border-radius:3px;padding:1px 5px;font-size:11px;color:var(--navy)}
+.src-hl-btn{display:inline-flex;align-items:center;gap:4px;font-size:10px;padding:2px 7px;border-radius:10px;background:var(--blue);color:#fff;border:none;cursor:pointer;font-family:var(--font);font-weight:500;white-space:nowrap}
+.src-hl-btn:hover{background:var(--navy)}
+.src-hl-btn.grey{background:var(--g200);color:var(--g600)}
+.src-hl-btn.grey:hover{background:var(--g400);color:#fff}
+
 .spin{width:15px;height:15px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .65s linear infinite;flex-shrink:0}
 @keyframes spin{to{transform:rotate(360deg)}}
 
@@ -220,8 +236,24 @@ body{font-family:var(--font);background:var(--g50);color:var(--g800);min-height:
       <div class="modal-title" id="viewer-title">📄 Document Viewer</div>
       <button class="modal-close" onclick="closeViewerDirect()">×</button>
     </div>
-    <div class="modal-body" id="viewer-body"></div>
-    <div class="modal-footer" id="viewer-footer">Click × to close. Use browser zoom to enlarge.</div>
+    <!-- highlight banner -->
+    <div class="hl-banner hidden" id="hl-banner">
+      <span>🔍 Highlighting source text:</span> <code id="hl-text-display"></code>
+      <span id="hl-match-count" style="margin-left:4px;color:var(--green);font-weight:500"></span>
+    </div>
+    <!-- nav bar -->
+    <div class="viewer-nav" id="viewer-nav">
+      <div class="vn-pg">
+        <button class="btn btn-o btn-sm" id="pg-prev" onclick="pdfGoPage(pdfState.page-1)">‹</button>
+        <span>Page</span>
+        <input type="number" id="pg-inp" min="1" value="1" onchange="pdfGoPage(+this.value)">
+        <span>/ <span id="pg-total">—</span></span>
+        <button class="btn btn-o btn-sm" id="pg-next" onclick="pdfGoPage(pdfState.page+1)">›</button>
+      </div>
+      <div style="flex:1"></div>
+      <span style="font-size:11px;color:var(--g400)" id="viewer-fn"></span>
+    </div>
+    <div class="modal-body" id="viewer-body" style="overflow:hidden"></div>
   </div>
 </div>
 
@@ -487,41 +519,210 @@ function updateSummary(){
   document.getElementById('btngo').disabled=!(FS[4].length&&FS[0].length&&FS[1].length&&FS[2].length);
 }
 
-/* ════ FILE VIEWER ════ */
-// Preview before upload (local blob URL)
-function previewLocal(slot, name){
+/* ════ FILE VIEWER (pdf.js) ════ */
+const pdfState={doc:null,page:1,total:0,hlText:'',rendering:false};
+if(typeof pdfjsLib!=='undefined') pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+function previewLocal(slot,name){
   const f=FS[slot].find(x=>x.name===name);
   if(!f) return;
   const url=URL.createObjectURL(f);
-  openViewer(name, url, f.type);
+  openViewer(name,url,f.type,'',1);
 }
-// Preview after upload (server-side, by filename)
-function previewServer(filename){
+function previewLocalIdx(slot,idx){
+  const f=FS[slot][idx];
+  if(!f) return;
+  const url=URL.createObjectURL(f);
+  openViewer(f.name,url,f.type,'',1);
+}
+function previewServer(filename,page,hlText){
   const url=`/api/preview/${encodeURIComponent(filename)}`;
-  // Guess mime from extension
   const ext=filename.split('.').pop().toLowerCase();
   const mime=ext==='pdf'?'application/pdf':['jpg','jpeg','png','tiff','gif'].includes(ext)?'image/'+ext:'application/octet-stream';
-  openViewer(filename, url, mime);
+  openViewer(filename,url,mime,hlText||'',page||1);
 }
-function openViewer(name, url, mime){
+async function openViewer(name,url,mime,hlText,startPage){
   document.getElementById('viewer-title').textContent='📄 '+name;
-  document.getElementById('viewer-footer').textContent=name+' — Click × or outside to close';
+  document.getElementById('viewer-fn').textContent=name;
   const body=document.getElementById('viewer-body');
-  if(mime==='application/pdf'){
-    body.innerHTML=`<iframe src="${url}" style="width:100%;height:100%;border:none"></iframe>`;
-  } else if(mime.startsWith('image/')){
-    body.innerHTML=`<img src="${url}" alt="${name}" style="width:100%;height:100%;object-fit:contain;background:#fff">`;
+  const nav=document.getElementById('viewer-nav');
+  const banner=document.getElementById('hl-banner');
+  // Reset state
+  pdfState.doc=null;pdfState.page=startPage||1;pdfState.hlText=hlText||'';pdfState.total=0;
+  // Show/hide banner
+  if(hlText){
+    document.getElementById('hl-text-display').textContent=hlText.length>80?hlText.slice(0,78)+'…':hlText;
+    document.getElementById('hl-match-count').textContent='';
+    banner.classList.remove('hidden');
   } else {
-    body.innerHTML=`<div style="padding:24px;color:var(--g600)">Cannot preview this file type. <a href="${url}" target="_blank" style="color:var(--blue)">Open in new tab</a></div>`;
+    banner.classList.add('hidden');
   }
   document.getElementById('viewer-bg').classList.remove('hidden');
+  if(mime==='application/pdf'){
+    nav.style.display='flex';
+    body.innerHTML='<div class="pdf-outer" id="pdf-outer"></div>';
+    try{
+      if(typeof pdfjsLib==='undefined') throw new Error('pdf.js not loaded');
+      const loadTask=pdfjsLib.getDocument(url);
+      const doc=await loadTask.promise;
+      pdfState.doc=doc;pdfState.total=doc.numPages;
+      document.getElementById('pg-total').textContent=doc.numPages;
+      document.getElementById('pg-inp').max=doc.numPages;
+      // If hlText, search all pages to find first occurrence, then jump there
+      let targetPage=pdfState.page;
+      if(hlText){
+        const found=await pdfFindTextPage(doc,hlText);
+        if(found>0){targetPage=found;pdfState.page=found;}
+      }
+      await pdfRenderPage(targetPage);
+    } catch(e){
+      body.innerHTML=`<div style="padding:24px;color:var(--red)">PDF load error: ${e.message}. <a href="${url}" target="_blank" style="color:var(--blue)">Open in new tab</a></div>`;
+    }
+  } else if(mime.startsWith('image/')){
+    nav.style.display='none';
+    let extra=hlText?`<div class="hl-banner" style="position:absolute;bottom:0;left:0;right:0"><span>🔍 Source text:</span><code>${esc(hlText)}</code></div>`:''; 
+    body.innerHTML=`<div style="position:relative;width:100%;height:100%;background:#525659;display:flex;align-items:center;justify-content:center"><img src="${url}" alt="${name}" style="max-width:100%;max-height:100%;object-fit:contain;background:#fff">${extra}</div>`;
+  } else {
+    nav.style.display='none';
+    body.innerHTML=`<div style="padding:24px;color:var(--g600)">Cannot preview this file type. <a href="${url}" target="_blank" style="color:var(--blue)">Open in new tab</a></div>`;
+  }
 }
+
+async function pdfFindTextPage(doc,hlText){
+  const q=hlText.toLowerCase().replace(/\s+/g,' ').trim().slice(0,60);
+  for(let p=1;p<=doc.numPages;p++){
+    try{
+      const pg=await doc.getPage(p);
+      const tc=await pg.getTextContent();
+      const pageText=tc.items.map(i=>i.str).join(' ').toLowerCase();
+      if(pageText.includes(q.slice(0,Math.min(q.length,30)))) return p;
+    } catch(e){/* skip */}
+  }
+  return 0;
+}
+
+async function pdfRenderPage(pageNum){
+  if(!pdfState.doc) return;
+  pageNum=Math.max(1,Math.min(pageNum,pdfState.total));
+  pdfState.page=pageNum;
+  document.getElementById('pg-inp').value=pageNum;
+  document.getElementById('pg-prev').disabled=pageNum<=1;
+  document.getElementById('pg-next').disabled=pageNum>=pdfState.total;
+  if(pdfState.rendering) return;
+  pdfState.rendering=true;
+  try{
+    const page=await pdfState.doc.getPage(pageNum);
+    const outer=document.getElementById('pdf-outer');
+    if(!outer){pdfState.rendering=false;return;}
+    const viewportBase=page.getViewport({scale:1});
+    const containerW=outer.clientWidth-32||800;
+    const scale=Math.min(containerW/viewportBase.width,2.2);
+    const viewport=page.getViewport({scale});
+    outer.innerHTML='';
+    const wrap=document.createElement('div');
+    wrap.className='pdf-page-wrap';
+    wrap.style.width=viewport.width+'px';
+    wrap.style.height=viewport.height+'px';
+    // Main canvas
+    const canvas=document.createElement('canvas');
+    canvas.width=viewport.width;canvas.height=viewport.height;
+    wrap.appendChild(canvas);
+    // Highlight overlay canvas (drawn on top)
+    const hlCanvas=document.createElement('canvas');
+    hlCanvas.width=viewport.width;hlCanvas.height=viewport.height;
+    hlCanvas.style.cssText='position:absolute;inset:0;pointer-events:none';
+    wrap.appendChild(hlCanvas);
+    outer.appendChild(wrap);
+    // Render PDF page
+    await page.render({canvasContext:canvas.getContext('2d'),viewport}).promise;
+    // Get text content for highlighting
+    const tc=await page.getTextContent();
+    // Highlight on overlay canvas if hlText set
+    if(pdfState.hlText){
+      const count=pdfDrawHighlight(hlCanvas,tc.items,viewport,pdfState.hlText);
+      const mc=document.getElementById('hl-match-count');
+      if(mc) mc.textContent=count?`(${count} match${count>1?'es':''} highlighted)`:'';
+    }
+  } catch(e){console.warn('pdfRenderPage error',e);}
+  pdfState.rendering=false;
+}
+
+function pdfDrawHighlight(hlCanvas,items,viewport,hlText){
+  const ctx=hlCanvas.getContext('2d');
+  ctx.clearRect(0,0,hlCanvas.width,hlCanvas.height);
+  const q=hlText.toLowerCase().replace(/\s+/g,' ').trim();
+  const words=q.split(' ').filter(w=>w.length>2);
+  if(!words.length) return 0;
+  let count=0;
+  // Build a sliding window of consecutive items to catch multi-word matches
+  // Also match each item individually
+  for(let i=0;i<items.length;i++){
+    const item=items[i];
+    if(!item.str||!item.str.trim()) continue;
+    // Build a window of 1-5 consecutive items for phrase matching
+    let windowText='';
+    const windowItems=[];
+    for(let j=i;j<Math.min(i+5,items.length);j++){
+      if(!items[j].str) continue;
+      windowText+=(windowText?' ':'')+items[j].str;
+      windowItems.push(items[j]);
+      // Check if this window contains enough of the search text
+      const wl=windowText.toLowerCase();
+      const matched=words.filter(w=>wl.includes(w)).length;
+      const matchRatio=matched/words.length;
+      if(matchRatio>=0.5 || (words.length===1&&matched===1)){
+        // Highlight each item in this window
+        windowItems.forEach((wi,wi_idx)=>{
+          const [a,b,c,d,e,f]=wi.transform;
+          // Transform text coordinates to canvas coordinates
+          const x=e*viewport.scale;
+          const y=viewport.height-(f*viewport.scale);
+          const w=wi.width*viewport.scale;
+          const h=Math.abs(d*viewport.scale)*1.2;
+          const isPrimary=(count===0&&wi_idx===0);
+          // Shadow glow
+          ctx.shadowColor=isPrimary?'rgba(255,120,0,0.6)':'rgba(255,200,0,0.4)';
+          ctx.shadowBlur=isPrimary?8:4;
+          // Fill
+          ctx.fillStyle=isPrimary?'rgba(255,160,0,0.45)':'rgba(255,230,0,0.38)';
+          ctx.fillRect(x,y-h+2,w,h);
+          // Border
+          ctx.shadowBlur=0;
+          ctx.strokeStyle=isPrimary?'rgba(200,80,0,0.85)':'rgba(180,140,0,0.6)';
+          ctx.lineWidth=isPrimary?2:1.5;
+          ctx.strokeRect(x,y-h+2,w,h);
+        });
+        count+=windowItems.length;
+        // Scroll highlight into view via the overlay canvas position
+        if(count===windowItems.length){
+          const [,,,,e,f]=windowItems[0].transform;
+          const approxTop=hlCanvas.getBoundingClientRect().top+(viewport.height-f*viewport.scale);
+          const outer=document.getElementById('pdf-outer');
+          if(outer){
+            const itemY=viewport.height-(f*viewport.scale);
+            setTimeout(()=>outer.scrollTo({top:hlCanvas.offsetTop+itemY-outer.clientHeight/2,behavior:'smooth'}),200);
+          }
+        }
+        break; // found a match starting at item i, move past window
+      }
+    }
+  }
+  return count;
+}
+
+function pdfGoPage(n){ if(pdfState.doc) pdfRenderPage(n); }
+
 function closeViewer(e){ if(e.target===document.getElementById('viewer-bg')) closeViewerDirect(); }
 function closeViewerDirect(){
   document.getElementById('viewer-bg').classList.add('hidden');
   document.getElementById('viewer-body').innerHTML='';
+  pdfState.doc=null;
 }
-document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeViewerDirect(); });
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape') closeViewerDirect();
+  if(e.key==='ArrowRight'&&pdfState.doc) pdfGoPage(pdfState.page+1);
+  if(e.key==='ArrowLeft'&&pdfState.doc) pdfGoPage(pdfState.page-1);
+});
 
 /* ════ STEPS ════ */
 function setStep(n){
@@ -638,7 +839,7 @@ function renderData(data){
     const valCell=editable
       ?`<div><input class="edit-input${fld.conf==='low'?' conf-low':''}" data-grp="${row.grp}" data-key="${row.key}" value="${esc(fld.value||'')}" placeholder="Enter ${row.label}" oninput="syncF('${row.grp}','${row.key}',this.value)"><div class="edit-note">⚠ Verify against source →</div></div>`
       :`<span class="fv">${fld.value||'<span style="color:var(--g400)">—</span>'}</span>`;
-    const srcCell=editable?buildSrcBadge(fld,true):'<span style="color:var(--g400);font-size:12px">—</span>';
+    const srcCell=buildSrcBadge(fld,true);
     return `<tr><td class="fk">${row.label}</td><td>${valCell}</td><td><span class="cb ${bc}">${bt}</span></td><td>${srcCell}</td></tr>`;
   }).join('');
 
@@ -855,6 +1056,10 @@ function dlTxt(){if(!xdata)return;const a=document.createElement('a');a.href=URL
 function fakeSubmit(){alert('In the full system this routes the sanction via eOffice.\nCRN: '+(fv(xdata?.claimant?.crn)||'N/A'));}
 function reset(){['s2','s3','s4'].forEach(id=>document.getElementById(id).classList.add('hidden'));document.getElementById('plog').innerHTML='';setStep(1);}
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+// Init pdf.js worker once DOM ready
+document.addEventListener('DOMContentLoaded',()=>{
+  if(typeof pdfjsLib!=='undefined') pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+});
 </script>
 </body>
 </html>
