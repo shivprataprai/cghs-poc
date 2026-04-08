@@ -57,11 +57,11 @@ body{font-family:var(--font);background:var(--g50);color:var(--g800);min-height:
 .uzone.ok{border-style:solid;border-color:var(--green);background:var(--green-l)}
 .uzone.eclaim-zone{border-color:var(--gold-b);background:var(--gold-l)}
 .uzone.eclaim-zone.ok{border-color:var(--green);background:var(--green-l)}
-.uzone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.uzone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;z-index:0}
 .uico{font-size:20px;margin-bottom:4px}
 .umn{font-size:12px;font-weight:500;color:var(--g600);margin-bottom:2px}
 .uhn{font-size:10px;color:var(--g400)}
-.file-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;justify-content:center}
+.file-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;justify-content:center;position:relative;z-index:1}
 .chip{background:#fff;border:1px solid var(--green);color:var(--green);font-size:10px;font-family:var(--mono);padding:2px 6px;border-radius:20px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-flex;align-items:center;gap:3px}
 .chip-x{cursor:pointer;font-size:12px;flex-shrink:0}
 .chip-x:hover{color:var(--red)}
@@ -461,11 +461,22 @@ function removeFile(slot,name,size){
   FS[slot]=FS[slot].filter(f=>!(f.name===name&&f.size===size));
   renderChips(slot); updateSummary();
 }
+// Index-based helpers — avoids inline-JS string-escaping issues with filenames
+function previewLocalIdx(slot,idx){
+  const f=FS[slot][idx];
+  if(!f) return;
+  const url=URL.createObjectURL(f);
+  openViewer(f.name, url, f.type);
+}
+function removeFileIdx(slot,idx){
+  FS[slot].splice(idx,1);
+  renderChips(slot); updateSummary();
+}
 function renderChips(slot){
   document.getElementById('z'+slot).classList.toggle('ok',FS[slot].length>0);
-  document.getElementById('chips'+slot).innerHTML=FS[slot].map(f=>{
+  document.getElementById('chips'+slot).innerHTML=FS[slot].map((f,i)=>{
     const lbl=f.name.length>16?f.name.slice(0,14)+'…':f.name;
-    return `<span class="chip" title="${f.name}">${lbl}<span class="chip-view" onclick="event.stopPropagation();previewLocal(${slot},'${esc(f.name)}')">👁</span><span class="chip-x" onclick="event.stopPropagation();removeFile(${slot},'${esc(f.name)}',${f.size})">×</span></span>`;
+    return `<span class="chip" title="${esc(f.name)}">${lbl}<span class="chip-view" onclick="event.stopPropagation();previewLocalIdx(${slot},${i})">👁</span><span class="chip-x" onclick="event.stopPropagation();removeFileIdx(${slot},${i})">×</span></span>`;
   }).join('');
 }
 function updateSummary(){
